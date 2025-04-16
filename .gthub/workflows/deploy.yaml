@@ -1,0 +1,32 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v1
+
+    - name: Build Docker image
+      run: docker build -t mayorpasca32./django-microservice .
+
+    - name: Push Docker image
+      run: |
+        echo "${{ secrets.Popoola32. }}" | docker login -u "${{ secrets.mayorpasca32 }}" --password-stdin
+        docker push mayorpasca32/django-microservice
+
+    - name: SSH & deploy to EC2
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_KEY }}
+        script: |
+          kubectl apply -f /home/ubuntu/k8s/
