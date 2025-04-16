@@ -1,32 +1,58 @@
-name: CI/CD
+name: Django CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main]  # Trigger on push to main branch
+  pull_request:
+    branches: [main]  # Optional: validate PRs to main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    - name: Set up Docker
-      uses: docker/setup-buildx-action@v1
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-    - name: Build Docker image
-      run: docker build -t mayorpasca32./django-microservice .
+      - name: Install Dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
 
-    - name: Push Docker image
-      run: |
-        echo "${{ secrets.Popoola32. }}" | docker login -u "${{ secrets.mayorpasca32 }}" --password-stdin
-        docker push mayorpasca32/django-microservice
+      - name: Lint and Run Tests
+        run: |
+          source venv/bin/activate
+          python manage.py test
 
-    - name: SSH & deploy to EC2
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_KEY }}
-        script: |
-          kubectl apply -f /home/ubuntu/k8s/
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        run: |
+          docker build -t django-microservice .
+
+      - name: SCP Files to EC2 Server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_KEY }}
+          source: "."
+          target: "/home/ubuntu/app"
+
+      - name: SSH Deploy on EC2 Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            cd /home/ubuntu/app
+            docker-compose down
+            docker-compose up -d --build
